@@ -7,38 +7,46 @@ fn handle_client(mut stream: TcpStream) {
     match stream.read(&mut buffer) {
         Ok(_) => {
             let request = String::from_utf8_lossy(&buffer[..]);
+            println!("--- Request ---\n{request}");
 
-            // พิมพ์ request ทั้งหมด
-            println!("--- Incoming Request ---\n{request}");
-
-            // เอาแค่บรรทัดแรก (request line)
             let request_line = request.lines().next().unwrap_or("");
             let mut parts = request_line.split_whitespace();
 
             let method = parts.next().unwrap_or("");
             let path = parts.next().unwrap_or("");
 
-            // Routing แบบง่าย
             let (status_line, content_type, body) = match (method, path) {
                 ("GET", "/") => (
                     "HTTP/1.1 200 OK",
                     "text/html",
-                    "<h1>Welcome to the Rust low-level server</h1>",
+                    "<h1>Welcome to Rust low-level server</h1>".to_string(),
                 ),
-                ("GET", "/hello") => (
-                    "HTTP/1.1 200 OK",
-                    "text/plain",
-                    "Hello there!",
-                ),
+                ("GET", "/hello") => ("HTTP/1.1 200 OK", "text/plain", "Hello!".to_string()),
                 ("GET", "/api") => (
                     "HTTP/1.1 200 OK",
                     "application/json",
-                    r#"{"message": "This is JSON"}"#,
+                    r#"{"message": "This is JSON"}"#.to_string(),
                 ),
+                ("GET", p) if p.starts_with("/user/") => {
+                    let user_id = &p["/user/".len()..];
+                    if user_id.chars().all(|c| c.is_ascii_digit()) {
+                        (
+                            "HTTP/1.1 200 OK",
+                            "text/plain",
+                            format!("You requested user {}", user_id),
+                        )
+                    } else {
+                        (
+                            "HTTP/1.1 400 BAD REQUEST",
+                            "text/plain",
+                            "Invalid user ID".to_string(),
+                        )
+                    }
+                }
                 _ => (
                     "HTTP/1.1 404 NOT FOUND",
                     "text/plain",
-                    "404 Not Found",
+                    "404 Not Found".to_string(),
                 ),
             };
 
@@ -50,13 +58,13 @@ fn handle_client(mut stream: TcpStream) {
             stream.write_all(response.as_bytes()).unwrap();
         }
         Err(e) => {
-            eprintln!("Error reading stream: {e}");
+            eprintln!("Stream read error: {e}");
         }
     }
 }
 
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:7878").expect("Could not bind to address");
+    let listener = TcpListener::bind("127.0.0.1:7878").expect("Failed to bind");
 
     println!("Server running at http://127.0.0.1:7878");
 
