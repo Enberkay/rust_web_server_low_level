@@ -36,3 +36,7 @@ curl http://localhost:7878/unknown
 curl http://localhost:7878/user/123      # ควรได้ข้อความ "You requested user 123"
 curl http://localhost:7878/user/abc      # ได้ HTTP 400 Bad Request
 curl http://localhost:7878/user/          # ได้ HTTP 400 หรือ 404 Not Found
+
+curl -X POST http://localhost:7878/submit -d "name=John&age=30" --output -
+curl -X PUT http://localhost:7878/update -d "update=data" --output -
+curl -X DELETE http://localhost:7878/delete
