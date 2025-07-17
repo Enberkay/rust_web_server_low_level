@@ -4,6 +4,14 @@ A minimal, low-level HTTP server written in Rust, designed to demonstrate manual
 
 ## Changelog
 
+### v0.3.0
+- Added HTTP/1.1 keep-alive (persistent connection) support.
+  - Parses the Connection header from incoming requests.
+  - If Connection: keep-alive is present, the server keeps the TCP connection open and handles multiple requests per connection.
+  - If Connection: close or no keep-alive, the server closes the connection after one request.
+  - Response includes the appropriate Connection header.
+  - This improves efficiency for clients making multiple requests.
+
 ### v0.2.0
 - Added detailed low-level logging for each HTTP request and response.
   - Logs client IP address, HTTP method, path, headers, body, response code, and response time to stdout.
