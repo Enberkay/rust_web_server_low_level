@@ -66,4 +66,35 @@ pub fn read_chunked_body(request: &str, stream: &mut TcpStream) -> String {
         buffer.drain(..chunk_size + 2); // remove chunk + \r\n
     }
     body
+}
+
+/// Decode HTTP Basic Auth header. Returns (username, password) if valid, else None.
+pub fn decode_basic_auth(header: &str) -> Option<(String, String)> {
+    // header is expected to be "Basic base64string"
+    let b64 = header.strip_prefix("Basic ")?.trim();
+    let decoded = base64_decode(b64)?;
+    let decoded_str = String::from_utf8(decoded).ok()?;
+    let mut parts = decoded_str.splitn(2, ':');
+    let user = parts.next()?.to_string();
+    let pass = parts.next()?.to_string();
+    Some((user, pass))
+}
+
+/// Minimal base64 decoder (supports standard base64, no padding check)
+pub fn base64_decode(input: &str) -> Option<Vec<u8>> {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut val = 0u32;
+    let mut valb = -8i32;
+    let mut out = Vec::new();
+    for c in input.chars() {
+        if c == '=' { break; }
+        let idx = TABLE.iter().position(|&x| x == c as u8)? as u32;
+        val = (val << 6) | idx;
+        valb += 6;
+        if valb >= 0 {
+            out.push(((val >> valb) & 0xFF) as u8);
+            valb -= 8;
+        }
+    }
+    Some(out)
 } 

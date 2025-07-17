@@ -54,6 +54,12 @@ A minimal, low-level HTTP server written in Rust, designed to demonstrate manual
   - Returns HTTP 429 Too Many Requests if the limit is exceeded.
   - Implemented using only the Rust standard library (no external crates).
 
+### v0.9.0
+- Added HTTP Basic Authentication for /api and /protected routes.
+  - Requires username `admin` and password `password123`.
+  - Returns 401 Unauthorized with WWW-Authenticate header if missing or invalid.
+  - Manual base64 decoding, no external crate used.
+
 ## Usage
 
 ```sh

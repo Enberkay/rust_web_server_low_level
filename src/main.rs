@@ -44,6 +44,19 @@ fn handle_client(mut stream: TcpStream, rate_limiter: RateLimiter) {
                 let mut parts = request_line.split_whitespace();
                 let method = parts.next().unwrap_or("");
                 let path = parts.next().unwrap_or("");
+                // Basic Auth for /api and /protected
+                let needs_auth = path == "/api" || path == "/protected";
+                if needs_auth {
+                    let auth_header = headers.get("authorization").and_then(|v| v.get(0));
+                    let valid = auth_header.and_then(|h| http::decode_basic_auth(h))
+                        .map(|(u, p)| u == "admin" && p == "password123").unwrap_or(false);
+                    if !valid {
+                        let response = "HTTP/1.1 401 UNAUTHORIZED\r\nWWW-Authenticate: Basic realm=\"RustServer\"\r\nContent-Type: text/plain\r\nContent-Length: 18\r\nConnection: close\r\n\r\nUnauthorized access";
+                        let _ = stream.write_all(response.as_bytes());
+                        println!("401 Unauthorized for {peer_addr} on {path}");
+                        break;
+                    }
+                }
                 // Chunked transfer encoding support
                 let transfer_encoding = headers.get("transfer-encoding").and_then(|v| v.get(0)).map(|v| v.to_ascii_lowercase());
                 let body = if transfer_encoding.as_deref() == Some("chunked") {
