@@ -4,6 +4,13 @@ A minimal, low-level HTTP server written in Rust, designed to demonstrate manual
 
 ## Changelog
 
+### v0.4.0
+- Added static file serving for GET requests to /static/*
+  - Files are served from the public/ directory.
+  - Content-Type is determined by file extension (e.g., .html, .css, .js, .png, etc.).
+  - Directory traversal (../) is blocked for security.
+  - Returns 404 if the file does not exist.
+
 ### v0.3.0
 - Added HTTP/1.1 keep-alive (persistent connection) support.
   - Parses the Connection header from incoming requests.
