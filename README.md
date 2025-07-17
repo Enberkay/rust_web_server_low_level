@@ -4,6 +4,12 @@ A minimal, low-level HTTP server written in Rust, designed to demonstrate manual
 
 ## Changelog
 
+### v0.5.0
+- Improved HTTP header parsing:
+  - Supports multi-line (folded) headers according to HTTP/1.x spec.
+  - Stores headers as HashMap<String, Vec<String>> for case-insensitive keys and duplicate headers.
+  - Enables robust handling of complex and repeated headers.
+
 ### v0.4.0
 - Added static file serving for GET requests to /static/*
   - Files are served from the public/ directory.

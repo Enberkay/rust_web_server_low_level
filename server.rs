@@ -4,6 +4,30 @@ use std::time::Instant;
 use std::fs;
 use std::path::Path;
 
+fn parse_headers(request: &str) -> std::collections::HashMap<String, Vec<String>> {
+    let mut headers = std::collections::HashMap::new();
+    let mut last_key = None;
+    for line in request.lines().skip(1) {
+        if line.is_empty() { break; }
+        if line.starts_with(' ') || line.starts_with('\t') {
+            // Multi-line header (folded)
+            if let Some(key) = &last_key {
+                if let Some(values) = headers.get_mut(key) {
+                    if let Some(last_val) = values.last_mut() {
+                        last_val.push_str(line.trim());
+                    }
+                }
+            }
+        } else if let Some((k, v)) = line.split_once(":") {
+            let key = k.trim().to_ascii_lowercase();
+            let value = v.trim().to_string();
+            headers.entry(key.clone()).or_insert_with(Vec::new).push(value);
+            last_key = Some(key);
+        }
+    }
+    headers
+}
+
 fn handle_client(mut stream: TcpStream) {
     let peer_addr = stream.peer_addr().map(|a| a.to_string()).unwrap_or_else(|_| "unknown".to_string());
     loop {
@@ -14,14 +38,8 @@ fn handle_client(mut stream: TcpStream) {
             Ok(_) => {
                 let request = String::from_utf8_lossy(&buffer[..]);
                 println!("--- Request from {peer_addr} ---\n{request}");
-                // Parse headers into a HashMap
-                let mut headers = std::collections::HashMap::new();
-                for line in request.lines().skip(1) {
-                    if line.is_empty() { break; }
-                    if let Some((k, v)) = line.split_once(":") {
-                        headers.insert(k.trim().to_ascii_lowercase(), v.trim().to_string());
-                    }
-                }
+                // Advanced header parsing
+                let headers = parse_headers(&request);
                 let request_line = request.lines().next().unwrap_or("");
                 let mut parts = request_line.split_whitespace();
                 let method = parts.next().unwrap_or("");
@@ -123,11 +141,11 @@ fn handle_client(mut stream: TcpStream) {
                     }
                 };
                 // Determine if keep-alive is requested
-                let connection_header = headers.get("connection").map(|v| v.to_ascii_lowercase());
+                let connection_header = headers.get("connection").and_then(|v| v.get(0)).map(|v| v.to_ascii_lowercase());
                 let keep_alive = match connection_header.as_deref() {
                     Some("keep-alive") => true,
                     Some("close") => false,
-                    _ => false, // default: close for HTTP/1.0, keep-alive for HTTP/1.1 (but we default to close for safety)
+                    _ => false,
                 };
                 let mut response = format!(
                     "{status_line}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\n",
