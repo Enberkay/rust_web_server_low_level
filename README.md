@@ -43,20 +43,13 @@ A minimal, low-level HTTP server written in Rust, designed to demonstrate manual
 - Handles simple request body extraction and static response generation.
 - Spawns a new thread per connection for concurrency.
 
+### v0.7.0
+- Added graceful shutdown: server handles Ctrl+C (SIGINT), stops accepting new connections, and waits for all active connections to finish before exiting.
+- Refactored code into modules: HTTP utilities are now in src/http.rs, main server logic in src/main.rs.
+- Uses only the `ctrlc` crate for Ctrl+C handling; all other logic is pure std.
+
 ## Usage
 
 ```sh
 cargo run
 ```
-
-The server listens on 127.0.0.1:7878 by default.
-
-## Roadmap
-- HTTP/1.1 keep-alive support
-- Static file serving
-- Advanced header parsing
-- Chunked transfer encoding
-- HTTPS (TLS) support
-- Graceful shutdown
-- Rate limiting and basic authentication
-- Unit and integration tests
