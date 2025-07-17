@@ -4,6 +4,12 @@ A minimal, low-level HTTP server written in Rust, designed to demonstrate manual
 
 ## Changelog
 
+### v0.6.0
+- Added support for HTTP/1.1 chunked transfer encoding in request body parsing.
+  - If Transfer-Encoding: chunked is present, the server parses the request body as chunked.
+  - Used for POST/PUT requests with chunked bodies.
+  - Follows HTTP/1.1 chunked encoding rules (hex size, chunk data, CRLF, ends with 0 chunk).
+
 ### v0.5.0
 - Improved HTTP header parsing:
   - Supports multi-line (folded) headers according to HTTP/1.x spec.

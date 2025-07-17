@@ -28,6 +28,47 @@ fn parse_headers(request: &str) -> std::collections::HashMap<String, Vec<String>
     headers
 }
 
+fn read_chunked_body(request: &str, stream: &mut TcpStream) -> String {
+    // Find the start of the body
+    let header_end = request.find("\r\n\r\n").map(|i| i + 4).unwrap_or(request.len());
+    let mut body = String::new();
+    let mut buffer = request[header_end..].as_bytes().to_vec();
+    loop {
+        // Read chunk size line
+        let mut size_line = Vec::new();
+        while let Some(&b) = buffer.first() {
+            buffer.remove(0);
+            if b == b'\n' {
+                break;
+            } else if b != b'\r' {
+                size_line.push(b);
+            }
+        }
+        let size_str = String::from_utf8_lossy(&size_line);
+        let chunk_size = usize::from_str_radix(size_str.trim(), 16).unwrap_or(0);
+        if chunk_size == 0 {
+            break;
+        }
+        // Read chunk data
+        while buffer.len() < chunk_size + 2 {
+            // Read more from stream if needed
+            let mut temp = [0u8; 2048];
+            match stream.read(&mut temp) {
+                Ok(0) => break,
+                Ok(n) => buffer.extend_from_slice(&temp[..n]),
+                Err(_) => break,
+            }
+        }
+        if buffer.len() < chunk_size + 2 {
+            break;
+        }
+        let chunk = &buffer[..chunk_size];
+        body.push_str(&String::from_utf8_lossy(chunk));
+        buffer.drain(..chunk_size + 2); // remove chunk + \r\n
+    }
+    body
+}
+
 fn handle_client(mut stream: TcpStream) {
     let peer_addr = stream.peer_addr().map(|a| a.to_string()).unwrap_or_else(|_| "unknown".to_string());
     loop {
@@ -44,10 +85,14 @@ fn handle_client(mut stream: TcpStream) {
                 let mut parts = request_line.split_whitespace();
                 let method = parts.next().unwrap_or("");
                 let path = parts.next().unwrap_or("");
-                let body = if let Some(index) = request.find("\r\n\r\n") {
-                    &request[index + 4..]
+                // Chunked transfer encoding support
+                let transfer_encoding = headers.get("transfer-encoding").and_then(|v| v.get(0)).map(|v| v.to_ascii_lowercase());
+                let body = if transfer_encoding.as_deref() == Some("chunked") {
+                    read_chunked_body(&request, &mut stream)
+                } else if let Some(index) = request.find("\r\n\r\n") {
+                    request[index + 4..].to_string()
                 } else {
-                    ""
+                    String::new()
                 };
                 let (status_line, content_type, response_body) = if method == "GET" && path.starts_with("/static/") {
                     // Static file serving
