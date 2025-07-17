@@ -48,6 +48,12 @@ A minimal, low-level HTTP server written in Rust, designed to demonstrate manual
 - Refactored code into modules: HTTP utilities are now in src/http.rs, main server logic in src/main.rs.
 - Uses only the `ctrlc` crate for Ctrl+C handling; all other logic is pure std.
 
+### v0.8.0
+- Added basic in-memory rate limiting per IP address.
+  - Allows up to 5 requests per 3 seconds per IP.
+  - Returns HTTP 429 Too Many Requests if the limit is exceeded.
+  - Implemented using only the Rust standard library (no external crates).
+
 ## Usage
 
 ```sh

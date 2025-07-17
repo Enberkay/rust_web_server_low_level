@@ -1,13 +1,19 @@
 mod http;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::time::Instant;
+use std::time::{Instant, Duration};
 use std::fs;
 use std::path::Path;
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}, Mutex};
 use std::thread;
+use std::collections::HashMap;
 
-fn handle_client(mut stream: TcpStream) {
+const RATE_LIMIT_WINDOW: Duration = Duration::from_secs(3);
+const RATE_LIMIT_MAX: usize = 5;
+
+type RateLimiter = Arc<Mutex<HashMap<String, Vec<Instant>>>>;
+
+fn handle_client(mut stream: TcpStream, rate_limiter: RateLimiter) {
     let peer_addr = stream.peer_addr().map(|a| a.to_string()).unwrap_or_else(|_| "unknown".to_string());
     loop {
         let start_time = Instant::now();
@@ -15,6 +21,21 @@ fn handle_client(mut stream: TcpStream) {
         match stream.read(&mut buffer) {
             Ok(0) => break, // Connection closed by client
             Ok(_) => {
+                // Rate limiting
+                let now = Instant::now();
+                let mut limiter = rate_limiter.lock().unwrap();
+                let entry = limiter.entry(peer_addr.clone()).or_insert_with(Vec::new);
+                // Remove old timestamps
+                entry.retain(|&t| now.duration_since(t) < RATE_LIMIT_WINDOW);
+                if entry.len() >= RATE_LIMIT_MAX {
+                    let response = "HTTP/1.1 429 TOO MANY REQUESTS\r\nContent-Type: text/plain\r\nContent-Length: 19\r\nConnection: close\r\n\r\nToo Many Requests";
+                    let _ = stream.write_all(response.as_bytes());
+                    println!("429 Too Many Requests for {peer_addr}");
+                    break;
+                }
+                entry.push(now);
+                drop(limiter);
+
                 let request = String::from_utf8_lossy(&buffer[..]);
                 println!("--- Request from {peer_addr} ---\n{request}");
                 // Advanced header parsing
@@ -168,7 +189,6 @@ fn handle_client(mut stream: TcpStream) {
 fn main() {
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
-    // Handle Ctrl+C for graceful shutdown
     ctrlc::set_handler(move || {
         println!("\nReceived Ctrl+C, shutting down gracefully...");
         r.store(false, Ordering::SeqCst);
@@ -178,11 +198,13 @@ fn main() {
     println!("Server running at http://127.0.0.1:7878");
     listener.set_nonblocking(true).expect("Cannot set non-blocking");
     let mut thread_handles = Vec::new();
+    let rate_limiter: RateLimiter = Arc::new(Mutex::new(HashMap::new()));
     while running.load(Ordering::SeqCst) {
         match listener.accept() {
             Ok((stream, _)) => {
-                let handle = thread::spawn(|| {
-                    handle_client(stream);
+                let rl = rate_limiter.clone();
+                let handle = thread::spawn(move || {
+                    handle_client(stream, rl);
                 });
                 thread_handles.push(handle);
             }
