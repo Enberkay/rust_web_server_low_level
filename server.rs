@@ -1,13 +1,23 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::time::Instant;
 
 fn handle_client(mut stream: TcpStream) {
+    let peer_addr = stream.peer_addr().map(|a| a.to_string()).unwrap_or_else(|_| "unknown".to_string());
+    let start_time = Instant::now();
     let mut buffer = [0; 2048]; // เพิ่มขนาด buffer รองรับ body
 
     match stream.read(&mut buffer) {
         Ok(_) => {
             let request = String::from_utf8_lossy(&buffer[..]);
-            println!("--- Request ---\n{request}");
+            println!("--- Request from {peer_addr} ---\n{request}");
+            // Log headers
+            let mut headers = String::new();
+            for line in request.lines().skip(1) {
+                if line.is_empty() { break; }
+                headers.push_str(line);
+                headers.push('\n');
+            }
 
             let request_line = request.lines().next().unwrap_or("");
             let mut parts = request_line.split_whitespace();
@@ -79,7 +89,13 @@ fn handle_client(mut stream: TcpStream) {
                 "{status_line}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\n\r\n{response_body}",
                 response_body.len()
             );
-
+            let response_time = start_time.elapsed();
+            println!(
+                "--- Response to {peer_addr} ---\nStatus: {status_line}\nContent-Type: {content_type}\nContent-Length: {}\nResponse Body: {}\nResponse Time: {:?}\n",
+                response_body.len(),
+                if response_body.len() < 256 { &response_body } else { "<body too large>" },
+                response_time
+            );
             stream.write_all(response.as_bytes()).unwrap();
         }
         Err(e) => {

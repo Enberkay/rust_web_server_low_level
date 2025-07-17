@@ -1,42 +1,35 @@
-# Rust Low-Level HTTP Server (No External Library)
+# Rust Low-Level Web Server
 
-โปรเจกต์ตัวอย่างเขียน HTTP Server ด้วย Rust โดยใช้แค่ Standard Library (`std::net` และ `std::io`) แบบ low-level เพื่อเรียนรู้พื้นฐานของ TCP socket และ HTTP protocol
+A minimal, low-level HTTP server written in Rust, designed to demonstrate manual handling of TCP streams, HTTP parsing, and extensible low-level features.
 
----
+## Changelog
 
-## คุณสมบัติ
+### v0.2.0
+- Added detailed low-level logging for each HTTP request and response.
+  - Logs client IP address, HTTP method, path, headers, body, response code, and response time to stdout.
+  - Useful for debugging, performance analysis, and understanding raw HTTP traffic.
 
-- รับ HTTP Request และส่ง HTTP Response แบบง่าย
-- Routing แบบ basic รวมถึง
-  - Static routes: `/`, `/hello`, `/api`
-  - Dynamic route แบบ parameter: `/user/:id`
-- ตรวจสอบรูปแบบ `user_id` ว่าเป็นตัวเลขเท่านั้น
-- ส่งสถานะ HTTP เช่น 200 OK, 400 Bad Request, 404 Not Found
+### v0.1.0
+- Initial release: basic multi-threaded HTTP server using `std::net::TcpListener` and `TcpStream`.
+- Supports basic routing for GET, POST, PUT, DELETE methods.
+- Parses HTTP requests manually (no external libraries).
+- Handles simple request body extraction and static response generation.
+- Spawns a new thread per connection for concurrency.
 
----
+## Usage
 
-## วิธีใช้งาน
+```sh
+cargo run
+```
 
-1. คอมไพล์และรันเซิร์ฟเวอร์
+The server listens on 127.0.0.1:7878 by default.
 
-```bash
-rustc server.rs
-./server
-
-
-curl http://localhost:7878
-
-# ทดสอบ routing
-curl http://localhost:7878/
-curl http://localhost:7878/hello
-curl http://localhost:7878/api
-curl http://localhost:7878/unknown
-
-# ทดสอบ dynamic route /user/:id
-curl http://localhost:7878/user/123      # ควรได้ข้อความ "You requested user 123"
-curl http://localhost:7878/user/abc      # ได้ HTTP 400 Bad Request
-curl http://localhost:7878/user/          # ได้ HTTP 400 หรือ 404 Not Found
-
-curl -X POST http://localhost:7878/submit -d "name=John&age=30" --output -
-curl -X PUT http://localhost:7878/update -d "update=data" --output -
-curl -X DELETE http://localhost:7878/delete
+## Roadmap
+- HTTP/1.1 keep-alive support
+- Static file serving
+- Advanced header parsing
+- Chunked transfer encoding
+- HTTPS (TLS) support
+- Graceful shutdown
+- Rate limiting and basic authentication
+- Unit and integration tests
